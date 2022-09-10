@@ -104,7 +104,7 @@ def randomized_number_of_cooperation_ring():
 
 
 def submit_a_fractal_ring(owner, average_number_of_fractal_rings, rand_num_of_co_rings):
-    if owner.id not in co_operation_table_dict.keys()
+    if owner.id not in co_operation_table_dict.keys():
         return None
     if len(co_operation_table_dict[owner.id]) < rand_num_of_co_rings:
         return None
