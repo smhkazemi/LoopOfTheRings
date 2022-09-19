@@ -188,11 +188,6 @@ class CoOperationTable:
         self.number_of_required_rounds = nrr
 
 
-def coin_registration_unit_test():
-    user_id_1 = register_a_user(10)
-    print("registered ")
-    user_id_2 = register_a_user(20)
-
 
 def ether_connection_unit_test():
     infura_url = 'https://mainnet.infura.io/v3/81d6d934a6584310978f5d82c58bc1c6'
