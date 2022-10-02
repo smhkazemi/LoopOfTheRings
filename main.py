@@ -131,6 +131,7 @@ def register_a_coin(owner, abou, coin_type, nrr):
 def create_co_op_ring_table(ngm, owner, nrr, w):
     return CoOperationTable(get_random_id(), ngm, w, None, None, None, owner, nrr)
 
+
 def get_random_index_sha256(size):
     return int(hashlib.sha256(str(int(round(time.time() * 1000))).encode()).hexdigest(), 32) % size
 
