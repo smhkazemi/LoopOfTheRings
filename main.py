@@ -6,8 +6,6 @@ import socket
 import threading
 import time
 
-from numba import jit
-
 
 class pseudoTCBRelatedItems:  # simulating the way a user stores an image of the system
     epsilon = 0.001
@@ -250,52 +248,6 @@ def randomized_number_of_cooperation_ring():
         for i in range(500, cf):
             h = (int(hashlib.sha256(str(h).encode()).hexdigest(), 32) % 500) + 1500
     return cf
-
-@jit(target_backend='cuda')
-def round_check_state(frac_id, round_num):
-    for co_ring in pseudoTCBRelatedItems.fractal_ring_dict[frac_id][0]:
-        if "F" in co_ring.co_status:
-            continue
-        # broadcast_message(bytes("a_m "  + str(co_ring.group_id) + " "  + str(frac_id), 'utf-8'))
-        #
-        # if pseudoTCBRelatedItems.id_to_vote[co_ring.group_id] < len(
-        #         pseudoTCBRelatedItems.fractal_ring_dict[frac_id][1]) / 2:
-        #     co_ring.co_status = "F " + str(round_num)
-
-def ask_members(co_ring, frac_id, start, length):
-    for idx in range(start, length):
-        pseudoTCBRelatedItems.users[pseudoTCBRelatedItems.fractal_ring_dict[frac_id][1][idx]].ask_co_ring_members(
-            co_ring)
-
-@jit(target_backend='cuda')
-def apply_payment_polices(f_id, exec_round):
-    for co_ring in pseudoTCBRelatedItems.fractal_ring_dict[f_id][0]:
-        if "A" not in co_ring.co_status and "T" in co_ring.co_status:
-            if "F" in co_ring.co_status:
-                round_ended = int(co_ring.co_status.split()[1]) + 1
-            else:
-                round_ended = exec_round + 1
-            # In reality, if a randomly selected member of the verification team fails to pay, we keep selecting a random member
-            # This perhaps requires a while-loop
-            for coin in co_ring.trader_coin.binded_on:
-                random_member = pseudoTCBRelatedItems.users[pseudoTCBRelatedItems.fractal_ring_dict[f_id][1][
-                    get_random_index_sha256(len(pseudoTCBRelatedItems.fractal_ring_dict[f_id][1]))]]
-                simulated_tcb_history_on_user_ara = pseudoTCBRelatedItems.users[coin[2].owner_id].ara_amount
-                simulated_tcb_history_on_payment_amount = ((float(round_ended) / float(
-                    co_ring.number_of_required_rounds)) * float(coin[2].amount_based_on_one_unit)) + (
-                                                                      -1. / float(round_ended) - (1. / (
-                                                                          float(co_ring.weight) * float(
-                                                                      1 + len(co_ring.trader_coin.binded_on)))))
-                random_member.pay_user(coin[2].owner_id, simulated_tcb_history_on_payment_amount, coin[2])
-                for user_id in pseudoTCBRelatedItems.fractal_ring_dict[f_id][1]:
-                    if user_id is not random_member.id:
-                        pseudoTCBRelatedItems.users[user_id].check_payment(coin[2].owner_id,
-                                                                           simulated_tcb_history_on_user_ara,
-                                                                           simulated_tcb_history_on_payment_amount,
-                                                                           coin[2])
-            co_ring.co_status = co_ring.co_status + " A"
-        elif "T" not in co_ring.co_status:
-            co_ring.co_status = co_ring.co_status + " T"
 
 
 def get_majority_vote(investor_user, frac_ring_and_id, length):
@@ -541,7 +493,7 @@ def get_details(data):
 
 def listen_to_the_system(current_user_id,
                          to_receive=""):  # simulating the system of the user - this function is seperated from the user to use multi-threading
-    UDP_IP = "127.0.0.1"  # "255.255.255.255"
+    UDP_IP = "255.255.255.255"
     UDP_PORT = 5005
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((UDP_IP, UDP_PORT))
@@ -552,7 +504,7 @@ def listen_to_the_system(current_user_id,
 
 def broadcast_message(
         msg=b'getInfo'):  # simulating the system of the user - this function is seperated from the user to use multi-threading
-    UDP_IP = "127.0.0.1"  # "255.255.255.255"
+    UDP_IP = "255.255.255.255"
     interfaces = socket.getaddrinfo(host=socket.gethostname(), port=None, family=socket.AF_INET)
     allips = [ip[-1][0] for ip in interfaces]
     for ip in allips:
