@@ -14,7 +14,7 @@ contract initiator{
     uint private randNonce = 0;
     bool private swtiched_to_lor;
     int private num_of_traders_signed_up;
-    address broadcast_addr;
+    address private broadcast_addr;
 
     constructor() public{
         swtiched_to_lor = false;
@@ -30,9 +30,9 @@ contract initiator{
     }
 
     // The admin desires to signup a new trader
-    function sign_up(int ara) external{
+    function sign_up(int ara) external returns(address){
         if(swtiched_to_lor == true){
-            return;
+            return address(0x0);
         }
         uint256 trader_id = rand_id();
         Trader trader = new Trader(trader_id, ara, broadcast_addr);
@@ -43,5 +43,12 @@ contract initiator{
         }
         broadcast_interface(broadcast_addr).add_new_user_by_address(address(trader), trader_id);
         traders[trader_id] = address(trader);
+        return traders[trader_id];
+    }
+
+    function get_brroadcast_address() view external returns (address){
+        return broadcast_addr;
     }
 }
+
+

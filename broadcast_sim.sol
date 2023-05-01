@@ -39,6 +39,9 @@ contract broadcast_sim {
 
     // Function adding values to invest_coin_table_map
     function adding_invest_coin(uint256 coin_id, address corresponding_trader) external {
+        if(!switched_to_lor){
+            return;
+        }
         invest_coin_table_map[coin_id] = corresponding_trader;
         invest_coin_table_ids.push(coin_id);
         coins[coin_id] = corresponding_trader;
@@ -59,6 +62,9 @@ contract broadcast_sim {
     uint256[] internal co_op_ring_ids;
 
     function insert_co_ring_table(uint256 trader_id, uint256 g_id, address corresponding_trader) external {
+        if(!switched_to_lor){
+            return;
+        }
         co_operation_table_map[g_id] = corresponding_trader;  
         co_op_ring_ids.push(g_id);
         trader_id_to_co_op_ring_ids[trader_id].push(g_id);
@@ -83,18 +89,19 @@ contract broadcast_sim {
     mapping(uint256 => address) internal users_addresses;
     uint256[] internal user_ids;
 
-    function add_new_user(uint256 id) external {
-        user_ids.push(id);
-        users_addresses[id] = address(0x0);
-    }
-
     function add_new_user_by_address(address adr, uint256 id) external {
+        if(!switched_to_lor){
+            return;
+        }
         user_ids.push(id);
         users_addresses[id] = adr;
     }
 
     function get_addresses_of(uint256[] memory v_team_ids) view external returns (address[] memory){
         address[] memory result = new address[](v_team_ids.length);
+        if(!switched_to_lor){
+            return result;
+        }
         for(uint256 i = 0; i < v_team_ids.length; i++){
             result[i] = users_addresses[v_team_ids[i]];
         }
@@ -113,11 +120,7 @@ contract broadcast_sim {
         return users_addresses[id];
     }
      
-    bool internal switched_to_lor;
-
-    function init_switch_to_lor() external{
-        switched_to_lor = false;
-    }
+    bool internal switched_to_lor = false;
 
     function switch_to_lor() external{
         switched_to_lor = true;
@@ -128,3 +131,5 @@ contract broadcast_sim {
     }
     
 }
+
+
