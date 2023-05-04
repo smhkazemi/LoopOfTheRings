@@ -113,7 +113,7 @@ contract Trader {
     }
 
     function add_user(uint256 ara, address adr) external{
-        if(ara < 1){
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false || ara < 1){
             return;
         }
         broadcast(broadcast_addr).add_new_user_by_address(adr, rand_id());
@@ -132,6 +132,9 @@ contract Trader {
         return false;
     }
     function pay(uint256 c_id) external{
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
+            return;
+        }
         payment_provided[c_id] = false;
         if(service_coin_table_map[c_id].coin_id != 0){
             service_coin_table_map[c_id].status = "expired";
@@ -145,6 +148,9 @@ contract Trader {
         payment_provided[c_id] = true;
     }
     function receive_payment(uint256 c_id, int ara) external returns (bool){
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
+            return false;
+        }
         payment_received[c_id] = true;
         ara_amount += ara;
         if(service_coin_table_map[c_id].coin_id != 0){
@@ -168,9 +174,15 @@ contract Trader {
         return true;
     }
     function receive_service(uint256 c_id) external{
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
+            return;
+        }
         service_received[c_id] = true;
     }
     function provide_service(uint256 c_id) external returns(uint256){
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
+            return 0;
+        }
         service_provided[c_id] = true;
         return 1;
     }
