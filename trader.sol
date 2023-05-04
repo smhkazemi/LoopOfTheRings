@@ -18,12 +18,10 @@ interface broadcast{
     function get_co_ring_id_by_index(uint256 index) view external returns (uint256);
     function get_co_rings_for_trader_id(uint256 t_id) view external returns (uint256[] memory);
     function get_co_ring_table(uint256 g_id) view external returns (address);
-    function add_new_user(uint256 id) external;
     function add_new_user_by_address(address adr, uint256 id) external;
     function get_addresses_of(uint256[] memory v_team_ids) view external returns (address[] memory);
     function get_num_of_users() view external returns (uint256);
     function get_user_id_by_index(uint256 idx) view external returns (uint256);
-    function get_user(uint256 id) view external returns (address);
     function is_switched_to_lor() view external returns (bool);
 }
 
@@ -32,6 +30,7 @@ interface verification_team_member{
     function submit_fractal_ring(uint256[] memory result, uint256 len_of_ver_tream, uint256 votes, uint256 f_id) external;
     function end_of_round_check(uint256 f_id) external returns (uint256);
     function payment_check(uint256 f_id) external returns (uint256);
+    function change_status_of_coins(bytes32, uint256, uint256, uint256) external;
 }
 
 interface co_op_ring_owner{
@@ -40,7 +39,7 @@ interface co_op_ring_owner{
 
 interface coin_owner{
     function get_ara_amount() view external returns (int);
-    function get_coin(uint256 cid, string memory coin_type) view external returns(CoinTable memory);
+    function get_coin(uint256 cid) view external returns (CoinTable memory);
     function get_amount_b_o_invest_coin_by_id(uint256 cid) view external returns (int);
     function get_amount_b_o_service_coin_by_id(uint256 cid) view external returns (int);
     function set_bindings_invest_coin(uint256 coin_instance_id, uint256[] memory coin_ids_randomly_picked) external;
@@ -49,18 +48,19 @@ interface coin_owner{
     function status_of(uint256 cid) view external returns (string memory);
     function service_received_or_not(uint256) view external returns (bool);
     function service_provided_or_not(uint256) view external returns (bool);
-    function receive_service(uint256 result, uint256 c_id) external;
+    function receive_service(uint256 c_id) external;
     function provide_service(uint256 c_id) external returns(uint256);
     function payment_received_or_not(uint256) view external returns (bool);
     function payment_provided_or_not(uint256) view external returns (bool);
     function pay(uint256 c_id) external;
     function receive_payment(uint256 c_id) external returns (bool);
+    function change_status(bytes32, address[] memory, uint256, string memory) external;
 }
 
 struct CoinTable{
     uint256 coin_id;
     int amount_based_on_one_unit;
-    string status;  // ready - blocked - expired/paid
+    string status;  // ready - blocked - expired
     string type_of_coin;
     uint256 next_id_in_cooporation_ring;
     uint256 previous_id_in_cooperation_link;
@@ -106,10 +106,17 @@ contract Trader {
     mapping (uint256 => CoOperationTable) private co_op_rings_map;
     uint256[] private co_op_rings_ids;
 
-    constructor(uint256 id_, int ara, address b_addr) public {
+    constructor(uint256 id_, int ara, address b_addr) {
       id = id_;  
       ara_amount = ara;
       broadcast_addr = b_addr;
+    }
+
+    function add_user(uint256 ara, address adr) external{
+        if(ara < 1){
+            return;
+        }
+        broadcast(broadcast_addr).add_new_user_by_address(adr, rand_id());
     }
 
     function payment_received_or_not(uint256 c_id) view external returns (bool){
@@ -125,10 +132,26 @@ contract Trader {
         return false;
     }
     function pay(uint256 c_id) external{
+        payment_provided[c_id] = false;
+        if(service_coin_table_map[c_id].coin_id != 0){
+            service_coin_table_map[c_id].status = "expired";
+            if(ara_amount < service_coin_table_map[c_id].amount_based_on_one_unit){return;}
+            ara_amount = ara_amount - service_coin_table_map[c_id].amount_based_on_one_unit;
+        }else if(invest_coin_table_map[c_id].coin_id != 0){
+            invest_coin_table_map[c_id].status = "expired";
+            if(ara_amount < invest_coin_table_map[c_id].amount_based_on_one_unit){return;}
+            ara_amount = ara_amount - invest_coin_table_map[c_id].amount_based_on_one_unit;
+        }
         payment_provided[c_id] = true;
     }
-    function receive_payment(uint256 c_id) external returns (bool){
+    function receive_payment(uint256 c_id, int ara) external returns (bool){
         payment_received[c_id] = true;
+        ara_amount += ara;
+        if(service_coin_table_map[c_id].coin_id != 0){
+            service_coin_table_map[c_id].status = "expired";
+        }else if(invest_coin_table_map[c_id].coin_id != 0){
+            invest_coin_table_map[c_id].status = "expired";
+        }
         return true;
     }
 
@@ -144,7 +167,7 @@ contract Trader {
         }
         return true;
     }
-    function receive_service(uint256 result, uint256 c_id) external{
+    function receive_service(uint256 c_id) external{
         service_received[c_id] = true;
     }
     function provide_service(uint256 c_id) external returns(uint256){
@@ -190,7 +213,7 @@ contract Trader {
     }
 
     function generate_invest_coin(int amount_based_on_one_unit) public{
-        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
+        if(broadcast(broadcast_addr).is_switched_to_lor() == false || amount_based_on_one_unit > ara_amount){
             return;
         }
         uint256 coin_id = rand_id();
@@ -233,24 +256,22 @@ contract Trader {
         delete coin_ids_randomly_picked;
     }
 
-    mapping (uint256 => address[]) private ver_team_ids_trader_was_a_member_of;
+    mapping (uint256 => address[]) private ver_team_addresses_trader_was_a_member_of;
     mapping (uint256 => uint256[]) private co_rings_of_frac_rings_received;
     mapping (uint256 => bool) private votes_to_f_ids;
 
-    function get_vote_from_address(uint256[] memory co_ring_ids, address[] memory v_team_ids, uint256 f_id) external returns (uint256) {
+    function get_vote_from_address(uint256[] memory co_ring_ids, address[] memory v_team_addrs, uint256 f_id) external returns (uint256) {
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return 0;
         }
         votes_to_f_ids[f_id] = false;
-        ver_team_ids_trader_was_a_member_of[f_id] = v_team_ids;
+        ver_team_addresses_trader_was_a_member_of[f_id] = v_team_addrs;
         for(uint256 i = 0; i < co_ring_ids.length; i++ /*table in frac_ring_and_id[0]*/){
             CoOperationTable memory co_op = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(co_ring_ids[i])).get_co_op_ring(co_ring_ids[i]);
             uint256[] memory cids_binded_on = coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(co_op.trader_coin_id)).coin_ids_binded_on(co_op.trader_coin_id);
             for(uint256 j = 0; j < cids_binded_on.length; j++){
-                if(compare(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).status_of(cids_binded_on[j]), "ready")){
-                    return 0;
-                }
-                if(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(co_op.trader_coin_id)).get_ara_amount() < co_op.weight){
+                if(compare(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).status_of(cids_binded_on[j]), "ready") || 
+                    coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(co_op.trader_coin_id)).get_ara_amount() < co_op.weight){
                     return 0;
                 }
             }
@@ -259,15 +280,27 @@ contract Trader {
         return 1;
     }
 
+    function get_coins_binded_on(uint256 f_id, uint i) internal view returns (uint256[] memory) {
+        CoOperationTable memory co_op = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
+            co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]);
+        return coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(
+            co_op.trader_coin_id)).coin_ids_binded_on(co_op.trader_coin_id);
+    }
+
     function end_of_round_check(uint256 f_id) external returns (uint256){
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return 0;
         }
+        uint256 owner_coin_id;
         for(uint256 i = 0; i < co_rings_of_frac_rings_received[f_id].length; i++){
-            CoOperationTable memory co_op = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
-                co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]);
-            uint256[] memory cids_binded_on = coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(
-                co_op.trader_coin_id)).coin_ids_binded_on(co_op.trader_coin_id);
+            owner_coin_id = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
+                co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]).trader_coin_id;
+            if(!coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(owner_coin_id)).service_provided_or_not(owner_coin_id)
+             && coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(owner_coin_id)).service_received_or_not(owner_coin_id)){
+                votes_to_f_ids[f_id] = false;
+                return 0;
+            }
+            uint256[] memory cids_binded_on = get_coins_binded_on(f_id, i);
             for(uint256 j = 0; j < cids_binded_on.length; j++){
                 if(!(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).service_received_or_not(cids_binded_on[j]) ||
                  coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).service_provided_or_not(cids_binded_on[j]))){
@@ -284,14 +317,19 @@ contract Trader {
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return 0;
         }
+        uint256 owner_coin_id;
         for(uint256 i = 0; i < co_rings_of_frac_rings_received[f_id].length; i++){
-            CoOperationTable memory co_op = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
-                co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]);
-            uint256[] memory cids_binded_on = coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(
-                co_op.trader_coin_id)).coin_ids_binded_on(co_op.trader_coin_id);
+            co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
+                co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]).trader_coin_id;
+            if(!compare(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(owner_coin_id)).status_of(owner_coin_id), "expired")){
+                votes_to_f_ids[f_id] = false;
+                return 0;
+            }
+            uint256[] memory cids_binded_on = get_coins_binded_on(f_id, i);
             for(uint256 j = 0; j < cids_binded_on.length; j++){
-                if(!(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).payment_received_or_not(cids_binded_on[j]) ||
-                 coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).payment_provided_or_not(cids_binded_on[j]))){
+                if(!coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).payment_received_or_not(cids_binded_on[j]) ||
+                 !coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).payment_provided_or_not(cids_binded_on[j]) || 
+                 !compare(coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).status_of(cids_binded_on[j]), "expired")){
                      votes_to_f_ids[f_id] = false;
                      return 0;
                  }
@@ -302,20 +340,60 @@ contract Trader {
     }
 
     function submit_fractal_ring(uint256[] memory result, uint256 len_of_ver_tream, uint256 votes, uint256 f_id) external{
-        if(broadcast(broadcast_addr).is_switched_to_lor() == false){
-            return;
-        }
-        if(votes < len_of_ver_tream / 2){
+        if(votes < (len_of_ver_tream >> 1) || broadcast(broadcast_addr).is_switched_to_lor() == false){
             return;
         }
         co_rings_of_frac_rings_received[f_id] = result;
     }
 
-    function generate_a_fractal_ring() public {
+    function change_status(bytes32 sha256_of_vt_addresses, address[] memory vt_addrs, uint256 c_id, string memory new_status) external{
+        if(sha256(abi.encodePacked(block.timestamp,msg.sender,vt_addrs)) != sha256_of_vt_addresses){
+            return;
+        }
+        if(!compare(new_status, "blocked") && !compare(new_status, "expired")){
+            return;
+        }
+        if(invest_coin_table_map[c_id].coin_id == 0){
+            if(compare(service_coin_table_map[c_id].status, "expired")){
+                return;
+            }
+            if(compare(service_coin_table_map[c_id].status, "blocked") && compare(new_status, "ready")){
+                return;
+            }
+            service_coin_table_map[c_id].status = new_status;
+            return;
+        }
+        if(compare(invest_coin_table_map[c_id].status, "expired")){
+            return;
+        }
+        if(compare(invest_coin_table_map[c_id].status, "blocked") && compare(new_status, "ready")){
+            return;
+        }
+        invest_coin_table_map[c_id].status = new_status;
+    }
+
+    function change_status_of_coins(bytes32 sha256_of_vt_addresses, uint256 f_id, uint256 votes, uint256 vt) external{
+        if(votes < (vt >> 1) || broadcast(broadcast_addr).is_switched_to_lor() == false ||
+        sha256(abi.encodePacked(block.timestamp,msg.sender,ver_team_addresses_trader_was_a_member_of[f_id])) != sha256_of_vt_addresses || 
+            ver_team_addresses_trader_was_a_member_of[f_id].length == 0){
+            return;
+        }
+        for(uint256 i = 0; i < co_rings_of_frac_rings_received[f_id].length; i++){
+            CoOperationTable memory co_op = co_op_ring_owner(broadcast(broadcast_addr).get_co_ring_table(
+                co_rings_of_frac_rings_received[f_id][i])).get_co_op_ring(co_rings_of_frac_rings_received[f_id][i]);
+            uint256[] memory cids_binded_on = coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(
+                co_op.trader_coin_id)).coin_ids_binded_on(co_op.trader_coin_id);
+            for(uint256 j = 0; j < cids_binded_on.length; j++){
+                coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cids_binded_on[j])).change_status(sha256_of_vt_addresses,
+                 ver_team_addresses_trader_was_a_member_of[f_id], cids_binded_on[i], "blocked");
+            }
+        }
+    }
+
+    function generate_a_fractal_ring() external {
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return;
         }
-        // uint256 average_number_of_fractal_rings = 510; 
         uint rand_num_of_co_rings = rand_num_of_co_rings_in_fractal_ring();
         uint256[] memory co_ring_ids_to_submit = broadcast(broadcast_addr).get_co_rings_for_trader_id(id);
         uint256[] memory result = new uint256[](rand_num_of_co_rings);
@@ -334,29 +412,34 @@ contract Trader {
         uint256 vt = rand_index(rand_num_of_co_rings) + 1000;
         uint256[] memory verification_team_memebers_ids = new uint256[](vt);
         for(uint256 i = 0; i < vt; i++){
-            verification_team_memebers_ids[i] = broadcast(broadcast_addr).get_user_id_by_index(len);
+            verification_team_memebers_ids[i] = broadcast(broadcast_addr).get_user_id_by_index(rand_index(len));
         }
         address[] memory verification_team_memebers_addresses = broadcast(broadcast_addr).get_addresses_of(verification_team_memebers_ids);
         uint256 votes = 0;
         uint256 f_id = rand_id();
-        for(uint256 i = 0; i < verification_team_memebers_addresses.length; i++){
+        for(uint256 i = 0; i < vt; i++){
            votes += verification_team_member(verification_team_memebers_addresses[i]).get_vote_from_address(result, verification_team_memebers_addresses, f_id);
         }
-        for(uint256 i = 0; i < verification_team_memebers_ids.length; i++){
-            verification_team_member(verification_team_memebers_addresses[i]).submit_fractal_ring(result, verification_team_memebers_ids.length, votes, f_id);
+        // u.a.r pick a member of VT to change the status of the coins of the fractal ring, if the mejority allows the submission 
+        verification_team_member(verification_team_memebers_addresses[rand_index(vt)]).change_status_of_coins(
+            sha256(abi.encodePacked(block.timestamp,msg.sender,verification_team_memebers_addresses)), f_id, votes, vt);
+        if(votes < (vt >> 1)){return;}
+        for(uint256 i = 0; i < vt; i++){
+            verification_team_member(verification_team_memebers_addresses[i]).submit_fractal_ring(result, vt, votes, f_id);
         }
     }
 
     function get_ara_amount() view external returns (int){
         return ara_amount;
     }
-    function get_coin(uint256 cid, string memory coin_type) view external returns(CoinTable memory){
-        bool is_invest = (compare("invest", coin_type)) ? true : false;
-        if(is_invest){
+
+    function get_coin(uint256 cid) view external returns (CoinTable memory){
+        if(invest_coin_table_map[cid].coin_id != 0){
             return invest_coin_table_map[cid];
         }
         return service_coin_table_map[cid];
     }
+
     function get_amount_b_o_invest_coin_by_id(uint256 cid) view external returns (int){
         return invest_coin_table_map[cid].amount_based_on_one_unit;
     }
@@ -387,5 +470,4 @@ contract Trader {
         }
         return service_coin_table_map[cid].status;
     }
-
 }

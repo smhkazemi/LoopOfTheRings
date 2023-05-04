@@ -16,7 +16,7 @@ contract initiator{
     int private num_of_traders_signed_up;
     address private broadcast_addr;
 
-    constructor() public{
+    constructor(){
         swtiched_to_lor = false;
         num_of_traders_signed_up = 0;
         broadcast_addr = address(new broadcast_sim());
