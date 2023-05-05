@@ -110,7 +110,22 @@ contract Trader {
       id = id_;  
       ara_amount = ara;
       broadcast_addr = b_addr;
+      rounds_per_checkpoint = 10; // It can be changed arbitrary
+      rounds_passed = 0;
+      checkpoints_passed = 0;
     }
+
+    uint256 rounds_passed;
+    uint256 checkpoints_passed;
+    uint256 rounds_per_checkpoint;
+
+    function next_round() external{
+        rounds_passed++;
+        if((rounds_passed % rounds_per_checkpoint) == 0){
+            checkpoints_passed++;
+        }
+    }
+
 
     function add_user(uint256 ara, address adr) external{
         if(broadcast(broadcast_addr).is_switched_to_lor() == false || ara < 1){
