@@ -115,9 +115,9 @@ contract Trader {
       checkpoints_passed = 0;
     }
 
-    uint256 rounds_passed;
-    uint256 checkpoints_passed;
-    uint256 rounds_per_checkpoint;
+    uint256 private rounds_passed;
+    uint256 private checkpoints_passed;
+    uint256 private rounds_per_checkpoint;
 
     function next_round() external{
         rounds_passed++;
