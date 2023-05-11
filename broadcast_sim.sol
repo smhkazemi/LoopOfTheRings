@@ -11,13 +11,21 @@ pragma solidity >=0.8.2 <0.9.0;
 contract broadcast_sim {   
 
     mapping (uint256 => address) internal coins;
+    mapping (uint256 => address) internal service_coin_table_map;
+    uint256[] internal service_coin_table_ids;
+    mapping(uint256 => address) internal users_addresses;
+    uint256[] internal user_ids;
+    mapping (uint256 => address) internal invest_coin_table_map;
+    uint256[] internal invest_coin_table_ids;
+    uint private randNonce = 0;
+    mapping (uint256 => address) internal co_operation_table_map;
+    mapping (uint256 => uint256[]) internal trader_id_to_co_op_ring_ids;
+    uint256[] internal co_op_ring_ids;
+    bool internal switched_to_lor = false;
 
     function get_coin_owner_address_by_id(uint256 id) view external returns(address) {
         return coins[id];
     }
-
-    mapping (uint256 => address) internal service_coin_table_map;
-    uint256[] internal service_coin_table_ids;
 
     // Function adding values to service_coin_table_map
     function adding_service_coin(uint256 coin_id, address corresponding_trader) external {
@@ -34,8 +42,7 @@ contract broadcast_sim {
         return service_coin_table_ids[uint256(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % service_coin_table_ids.length];
     }
     
-    mapping (uint256 => address) internal invest_coin_table_map;
-    uint256[] internal invest_coin_table_ids;
+    
 
     // Function adding values to invest_coin_table_map
     function adding_invest_coin(uint256 coin_id, address corresponding_trader) external {
@@ -51,15 +58,10 @@ contract broadcast_sim {
         return invest_coin_table_map[id];
     }
 
-    uint private randNonce = 0;
 
     function get_invest_coin_table_by_id_uar() view external returns (uint256){
         return invest_coin_table_ids[uint256(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % invest_coin_table_ids.length];
     }
-
-    mapping (uint256 => address) internal co_operation_table_map;
-    mapping (uint256 => uint256[]) internal trader_id_to_co_op_ring_ids;
-    uint256[] internal co_op_ring_ids;
 
     function insert_co_ring_table(uint256 trader_id, uint256 g_id, address corresponding_trader) external {
         if(!switched_to_lor){
@@ -85,9 +87,6 @@ contract broadcast_sim {
     function get_co_ring_table(uint256 g_id) view external returns (address){
         return co_operation_table_map[g_id];
     }
-
-    mapping(uint256 => address) internal users_addresses;
-    uint256[] internal user_ids;
 
     function add_new_user_by_address(address adr, uint256 id) external {
         if(!switched_to_lor){
@@ -119,8 +118,6 @@ contract broadcast_sim {
     function get_user(uint256 id) view external returns (address){
         return users_addresses[id];
     }
-     
-    bool internal switched_to_lor = false;
 
     function switch_to_lor() external{
         switched_to_lor = true;

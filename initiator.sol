@@ -13,10 +13,10 @@ contract initiator{
     mapping (uint256 => address) private traders;
     uint private randNonce = 0;
     bool private swtiched_to_lor;
-    int private num_of_traders_signed_up;
+    uint256 private num_of_traders_signed_up;
     address private broadcast_addr;
 
-    constructor(){
+    constructor() public {
         swtiched_to_lor = false;
         num_of_traders_signed_up = 0;
         broadcast_addr = address(new broadcast_sim());
@@ -30,7 +30,7 @@ contract initiator{
     }
 
     // The admin desires to signup a new trader
-    function sign_up(int ara) external returns(address){
+    function sign_up(int ara) public returns(address){
         if(swtiched_to_lor == true){
             return address(0x0);
         }
@@ -49,6 +49,7 @@ contract initiator{
     function get_brroadcast_address() view external returns (address){
         return broadcast_addr;
     }
+    
 }
 
 

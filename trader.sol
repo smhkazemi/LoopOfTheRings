@@ -60,6 +60,7 @@ interface coin_owner{
 struct CoinTable{
     uint256 coin_id;
     int amount_based_on_one_unit;
+    int num_of_srvice_or_invest_required_based_on_type;
     string status;  // ready - blocked - expired
     string type_of_coin;
     uint256 next_id_in_cooporation_ring;
@@ -106,7 +107,7 @@ contract Trader {
     mapping (uint256 => CoOperationTable) private co_op_rings_map;
     uint256[] private co_op_rings_ids;
 
-    constructor(uint256 id_, int ara, address b_addr) {
+    constructor(uint256 id_, int ara, address b_addr) public {
       id = id_;  
       ara_amount = ara;
       broadcast_addr = b_addr;
@@ -125,7 +126,6 @@ contract Trader {
             checkpoints_passed++;
         }
     }
-
 
     function add_user(uint256 ara, address adr) external{
         if(broadcast(broadcast_addr).is_switched_to_lor() == false || ara < 1){
@@ -227,36 +227,38 @@ contract Trader {
         return result;
     }
 
-    function generate_service_coin(int amount_based_on_one_unit ) public{
+    function generate_service_coin(int amount_based_on_one_unit, int num_of_srvice_or_invest_required_based_on_type) external{
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return;
         }
         uint256 coin_id = rand_id();
         uint256[] memory bindings;
         uint256 x = 0;
-        service_coin_table_map[coin_id] = CoinTable(coin_id, amount_based_on_one_unit, "ready", "service", 0, 0, x, bindings, bindings, id);
+        service_coin_table_map[coin_id] = CoinTable(coin_id, amount_based_on_one_unit, num_of_srvice_or_invest_required_based_on_type,
+         "ready", "service", 0, 0, x, bindings, bindings, id);
         service_coin_table_ids.push(coin_id);
         broadcast(broadcast_addr).adding_service_coin(coin_id, address(this));
     }
 
-    function generate_invest_coin(int amount_based_on_one_unit) public{
+    function generate_invest_coin(int amount_based_on_one_unit, int num_of_srvice_or_invest_required_based_on_type) external{
         if(broadcast(broadcast_addr).is_switched_to_lor() == false || amount_based_on_one_unit > ara_amount){
             return;
         }
         uint256 coin_id = rand_id();
         uint256[] memory bindings;
-        invest_coin_table_map[coin_id] = CoinTable(coin_id, amount_based_on_one_unit, "ready", "invest", 0, 0, 0, bindings, bindings, id);
+        invest_coin_table_map[coin_id] = CoinTable(coin_id, amount_based_on_one_unit, num_of_srvice_or_invest_required_based_on_type,
+         "ready", "invest", 0, 0, 0, bindings, bindings, id);
         invest_coin_table_ids.push(coin_id);
         broadcast(broadcast_addr).adding_invest_coin(coin_id, address(this));
     }
 
-    function compare(string memory str1, string memory str2) public pure returns (bool) {
+    function compare(string memory str1, string memory str2) internal pure returns (bool) {
         return keccak256(abi.encodePacked(str1)) == keccak256(abi.encodePacked(str2));
     }
 
     uint256[] private coin_ids_randomly_picked; 
 
-    function generate_co_op_ring(uint256 coin_instance_id, string memory coin_type) public {
+    function generate_co_op_ring(uint256 coin_instance_id, string memory coin_type) external {
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
             return;
         }
@@ -264,8 +266,10 @@ contract Trader {
         CoinTable memory coin_table = is_invest ? invest_coin_table_map[coin_instance_id] : service_coin_table_map[coin_instance_id];
         int num_of_group_members = 0;
         int amount_based_on_one_unit = coin_table.amount_based_on_one_unit;
-        while(amount_based_on_one_unit > 0){
+        int num_of_srvice_or_invest_required_based_on_type = coin_table.num_of_srvice_or_invest_required_based_on_type;
+        while(amount_based_on_one_unit > 0 && num_of_srvice_or_invest_required_based_on_type > 0){
             num_of_group_members++;
+            num_of_srvice_or_invest_required_based_on_type--;
             uint256 cid = is_invest ? broadcast(broadcast_addr).get_invest_coin_table_by_id_uar() : broadcast(broadcast_addr).get_service_coin_table_by_id_uar();
             coin_ids_randomly_picked.push(cid);
             amount_based_on_one_unit -=  (is_invest ? coin_owner(broadcast(broadcast_addr).get_coin_owner_address_by_id(cid)).get_amount_b_o_invest_coin_by_id(cid)
