@@ -2,6 +2,8 @@
 Please refer to the techincal report pdf file in the repository for more details.
 Before running the simulation, make sure you have the Solc library and Web3 (both on python) installed:
 
+pip install web3
+
 sudo add-apt-repository ppa:ethereum/ethereum
 
 sudo apt-get update
