@@ -1,6 +1,7 @@
 # LoopOfTheRings
 Please refer to the techincal report pdf file in the repository for more details.
-Before running the simulation, make sure you have the Solc library and Web3 (both on python) installed:
+Before running the simulation, make sure you have the Python 3.10.12, also Solc library and Web3 (both on python) installed. 
+The following would help you to install all the requirments:
 
 pip install web3
 
