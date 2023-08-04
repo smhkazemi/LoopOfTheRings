@@ -91,7 +91,7 @@ struct fractalRing{
 }
 
 contract Trader {
-    uint256 private id;
+    uint256 public id;
     int private ara_amount;
     uint private randNonce = 0;
     uint private randNonceFrac = 0;
