@@ -106,6 +106,9 @@ contract Trader {
     uint256[] private invest_coin_table_ids;
     mapping (uint256 => CoOperationTable) private co_op_rings_map;
     uint256[] private co_op_rings_ids;
+    mapping (uint256 => address[]) private ver_team_addresses_trader_was_a_member_of;
+    mapping (uint256 => uint256[]) private co_rings_of_frac_rings_received;
+    mapping (uint256 => bool) private votes_to_f_ids;
 
     constructor(uint256 id_, int ara, address b_addr) public {
       id = id_;  
@@ -286,10 +289,6 @@ contract Trader {
          sha256(bytes(abi.encodePacked(coin_table.status,' ',coin_table.type_of_coin))), 1, "ready");
         delete coin_ids_randomly_picked;
     }
-
-    mapping (uint256 => address[]) private ver_team_addresses_trader_was_a_member_of;
-    mapping (uint256 => uint256[]) private co_rings_of_frac_rings_received;
-    mapping (uint256 => bool) private votes_to_f_ids;
 
     function get_vote_from_address(uint256[] memory co_ring_ids, address[] memory v_team_addrs, uint256 f_id) external returns (uint256) {
         if(broadcast(broadcast_addr).is_switched_to_lor() == false){
