@@ -2,18 +2,13 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-/**
- * @title broadcast_sim
-
- * @dev Store & retrieve value in a variable
- * @custom:dev-run-script ./scripts/deploy_with_ethers.ts
- */
 contract broadcast_sim {   
 
     mapping (uint256 => address) internal coins;
     mapping (uint256 => address) internal service_coin_table_map;
     uint256[] internal service_coin_table_ids;
     mapping(uint256 => address) internal users_addresses;
+    mapping(uint256 => address) internal verification_team_member_roles;
     uint256[] internal user_ids;
     mapping (uint256 => address) internal invest_coin_table_map;
     uint256[] internal invest_coin_table_ids;
@@ -88,12 +83,13 @@ contract broadcast_sim {
         return co_operation_table_map[g_id];
     }
 
-    function add_new_user_by_address(address adr, uint256 id) external {
+    function add_new_user_by_address(address adr, uint256 id, address v_address) external {
         if(!switched_to_lor){
             return;
         }
         user_ids.push(id);
         users_addresses[id] = adr;
+        verification_team_member_roles[id] = v_address;
     }
 
     function get_addresses_of(uint256[] memory v_team_ids) view external returns (address[] memory){
@@ -102,7 +98,7 @@ contract broadcast_sim {
             return result;
         }
         for(uint256 i = 0; i < v_team_ids.length; i++){
-            result[i] = users_addresses[v_team_ids[i]];
+            result[i] = verification_team_member_roles[v_team_ids[i]];
         }
         return result;
     }
