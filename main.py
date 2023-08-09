@@ -1,5 +1,6 @@
 import random
 
+from hexbytes import HexBytes
 from web3 import Web3
 from solcx import compile_standard
 import json
@@ -21,6 +22,8 @@ def deploy(initiator_file_name, broadcast_file_name):
 
     # 0xCE6dD32848276F9C05134A3B9aD887EaFcBBb5bB
     # c3e16d258afdcbf16e4af44e5353ff788c5dd58d67e51b65049631c0a1a697af
+    # 8c5dd58d67e51b65049631c0a1a697af
+    # c3e16d258afdcbf16e4af44e5353ff78
 
     if w3.is_address(address) is False:
         print("Invalid address. Try again:")
@@ -34,12 +37,15 @@ def deploy(initiator_file_name, broadcast_file_name):
         return
 
     print("Please enter your 32-byte private key:")
-    private_key = input("-->").encode()  # b'e6b2290a4b444f3d91945d02f9c7b267'
+    # private_key = input("-->").encode()  # b'e6b2290a4b444f3d91945d02f9c7b267'
     # initialize contract
-    nonce = w3.eth.get_transaction_count(address)
+    import codecs
+    decoder = codecs.getdecoder("hex_codec")
+    private_key = decoder(input("-->").encode())[0]
     print("Processing the initiator and broadcast solidity file...")
     initiator_abi, initiator_bytecode = get_abi_and_bytecode_from(initiator_file_name, "initiator")
     broadcast_abi, broadcast_bytecode = get_abi_and_bytecode_from(broadcast_file_name, "broadcast_sim")
+    nonce = w3.eth.get_transaction_count(address) + 1
     print("Deploying Contract with nonce: " + str(nonce))
     transaction_dict = {
         "chainId": chain_id,
@@ -47,14 +53,22 @@ def deploy(initiator_file_name, broadcast_file_name):
         "from": address,
         "nonce": nonce
     }
-    initiator_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
-                                                        w3.eth.contract(abi=initiator_abi,
-                                                                        bytecode=initiator_bytecode).constructor,
-                                                        perform_transaction(private_key, transaction_dict, w3,
-                                                                            w3.eth.contract(abi=broadcast_abi,
-                                                                                            bytecode=broadcast_bytecode
-                                                                                            ).constructor)
-                                                        .contractAddress)
+    transaction_receipt = None
+    try:
+        transaction_receipt = w3.eth.wait_for_transaction_receipt(
+            HexBytes('0x808adf3024165f5756b0a0f054e9670f0031c89779232d94b9c553532b3f7da5'))
+    except Exception:
+        if transaction_receipt is None:
+            initiator_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
+                                                            w3.eth.contract(abi=initiator_abi,
+                                                                            bytecode=initiator_bytecode).constructor,
+                                                            perform_transaction(private_key, transaction_dict, w3,
+                                                                                w3.eth.contract(abi=broadcast_abi,
+                                                                                                bytecode=broadcast_bytecode
+                                                                                                ).constructor)
+                                                            .contractAddress)
+        else:
+            initiator_transaction_receipt = transaction_receipt
     # passing broadcast address
     return (transaction_dict, w3.eth.contract(address=initiator_transaction_receipt.contractAddress, abi=initiator_abi),
             w3, private_key, address)
