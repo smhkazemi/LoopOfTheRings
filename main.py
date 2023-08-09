@@ -53,22 +53,14 @@ def deploy(initiator_file_name, broadcast_file_name):
         "from": address,
         "nonce": nonce
     }
-    transaction_receipt = None
-    try:
-        transaction_receipt = w3.eth.wait_for_transaction_receipt(
-            HexBytes('0x808adf3024165f5756b0a0f054e9670f0031c89779232d94b9c553532b3f7da5'))
-    except Exception:
-        if transaction_receipt is None:
-            initiator_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
-                                                            w3.eth.contract(abi=initiator_abi,
-                                                                            bytecode=initiator_bytecode).constructor,
-                                                            perform_transaction(private_key, transaction_dict, w3,
-                                                                                w3.eth.contract(abi=broadcast_abi,
-                                                                                                bytecode=broadcast_bytecode
-                                                                                                ).constructor)
-                                                            .contractAddress)
-        else:
-            initiator_transaction_receipt = transaction_receipt
+    initiator_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
+                                                        w3.eth.contract(abi=initiator_abi,
+                                                                        bytecode=initiator_bytecode).constructor,
+                                                        perform_transaction(private_key, transaction_dict, w3,
+                                                                            w3.eth.contract(abi=broadcast_abi,
+                                                                                            bytecode=broadcast_bytecode
+                                                                                            ).constructor)
+                                                        .contractAddress)
     # passing broadcast address
     return (transaction_dict, w3.eth.contract(address=initiator_transaction_receipt.contractAddress, abi=initiator_abi),
             w3, private_key, address)
