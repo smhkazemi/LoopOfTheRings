@@ -38,8 +38,8 @@ def deploy(initiator_file_name, broadcast_file_name):
     # initialize contract
     nonce = w3.eth.get_transaction_count(address)
     print("Processing the initiator and broadcast solidity file...")
-    initiator_abi, initiator_bytecode = get_byte_code_and_abi_from(initiator_file_name, "initiator")
-    broadcast_abi, broadcast_bytecode = get_byte_code_and_abi_from(broadcast_file_name, "broadcast_sim")
+    initiator_abi, initiator_bytecode = get_abi_and_bytecode_from(initiator_file_name, "initiator")
+    broadcast_abi, broadcast_bytecode = get_abi_and_bytecode_from(broadcast_file_name, "broadcast_sim")
     print("Deploying Contract with nonce: " + str(nonce))
     transaction_dict = {
         "chainId": chain_id,
@@ -47,20 +47,20 @@ def deploy(initiator_file_name, broadcast_file_name):
         "from": address,
         "nonce": nonce
     }
-    broadcast_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
-                                                        w3.eth.contract(abi=broadcast_abi,
-                                                                        bytecode=broadcast_bytecode).constructor)
     initiator_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
                                                         w3.eth.contract(abi=initiator_abi,
                                                                         bytecode=initiator_bytecode).constructor,
-                                                        broadcast_transaction_receipt.contractAddress)
+                                                        perform_transaction(private_key, transaction_dict, w3,
+                                                                            w3.eth.contract(abi=broadcast_abi,
+                                                                                            bytecode=broadcast_bytecode
+                                                                                            ).constructor)
+                                                        .contractAddress)
     # passing broadcast address
-
     return (transaction_dict, w3.eth.contract(address=initiator_transaction_receipt.contractAddress, abi=initiator_abi),
             w3, private_key, address)
 
 
-def get_byte_code_and_abi_from(filename, field_name):
+def get_abi_and_bytecode_from(filename, field_name):
     with open(filename, "r") as file:
         simple_storage_file = file.read()
     compiled_sol = compile_standard(
@@ -104,7 +104,30 @@ def perform_transaction(private_key, transaction_dict, w3, to_invoke, argument=N
     return transaction_receipt
 
 
-def adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors, workers):
+def adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors, workers,
+                 ver_team_member_abi, ver_team_member_bytecode):
+    (lower_bound_of_range, num_users_to_add, upper_bound_of_range,
+     user_type) = get_ranges_for_random_num_of_coins_new_traders_will_have()
+    for counter in range(num_users_to_add):
+        num_coins = int(random.Random.randint(lower_bound_of_range, upper_bound_of_range))
+        transaction_dict["nonce"] = w3.eth.get_transaction_count(address)
+        ver_team_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
+                                                           w3.eth.contract(abi=ver_team_member_abi,
+                                                                           bytecode=ver_team_member_bytecode).
+                                                           constructor)
+        # NB: We considered 1 coin = 1 Ara
+        transaction_dict["nonce"] = w3.eth.get_transaction_count(address)
+        transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
+                                                  initiator_contract.functions.sign_up, num_coins,
+                                                  ver_team_transaction_receipt.contractAddress)
+        if user_type == "i":
+            investors.append([num_coins, transaction_receipt])
+        else:
+            workers.append([num_coins, transaction_receipt])
+    return num_users_to_add
+
+
+def get_ranges_for_random_num_of_coins_new_traders_will_have():
     print("How many users would you like to add? (please enter an integer)")
     num_users_to_add = int(input("->>"))
     print("Which type would you like the users to be: investor (i) OR worker (w)")
@@ -123,19 +146,7 @@ def adding_users(transaction_dict, initiator_contract, w3, private_key, address,
         lower_bound_of_range = int(input("-->"))
         print("Please enter the upper bound of the range:")
         upper_bound_of_range = int(input("-->"))
-    for counter in range(num_users_to_add):
-        num_coins = int(random.Random.randint(lower_bound_of_range, upper_bound_of_range))
-        transaction_dict["nonce"] = w3.eth.get_transaction_count(address)
-
-        # NB: We considered 1 coin = 1 Ara
-        transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
-                                                  initiator_contract.functions.sign_up, num_coins)
-
-        if user_type == "i":
-            investors.append([num_coins, transaction_receipt])
-        else:
-            workers.append([num_coins, transaction_receipt])
-    return num_users_to_add
+    return lower_bound_of_range, num_users_to_add, upper_bound_of_range, user_type
 
 
 def form_fractal_ring(number_of_users, threshold_of_starting_lor, investors, transaction_dict, address, private_key,
@@ -179,6 +190,8 @@ if __name__ == '__main__':
     investors = []
     workers = []
     threshold_of_starting_lor = 1000000
+    ver_team_member_abi, ver_team_member_bytecode = get_abi_and_bytecode_from("verification_team_member.sol",
+                                                                              "verification_team_member")
     while True:
         print("Please choose a number among one of the following:")
         print("1. add user(s). ")
@@ -190,7 +203,7 @@ if __name__ == '__main__':
             break
         elif input_num == 1:  # add user(s)
             number_of_users += adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors,
-                                            workers)
+                                            workers, ver_team_member_abi, ver_team_member_bytecode)
         elif input_num == 2:
             if number_of_users < threshold_of_starting_lor:
                 print("Not enough users! There are " + str(number_of_users) +
