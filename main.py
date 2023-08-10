@@ -1,6 +1,6 @@
 import random
 
-from hexbytes import HexBytes
+import web3
 from web3 import Web3
 from solcx import compile_standard
 import json
@@ -112,16 +112,17 @@ def perform_transaction(private_key, transaction_dict, w3, to_invoke, argument=N
 
 
 def adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors, workers,
-                 ver_team_member_abi, ver_team_member_bytecode, trader_abi):
+                 ver_team_member_abi, ver_team_member_bytecode, trader_abi, alpha):
     (lower_bound_of_range, num_users_to_add, upper_bound_of_range,
      user_type) = get_ranges_for_random_num_of_coins_new_traders_will_have()
     for counter in range(num_users_to_add):
         num_coins = int(random.Random.randint(lower_bound_of_range, upper_bound_of_range))
         transaction_dict["nonce"] = w3.eth.get_transaction_count(address)
+        is_vicious_in_simulation = random.random() <= alpha
         ver_team_transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
                                                            w3.eth.contract(abi=ver_team_member_abi,
                                                                            bytecode=ver_team_member_bytecode).
-                                                           constructor)
+                                                           constructor, is_vicious_in_simulation)
         # NB: We considered 1 coin = 1 Ara
         transaction_dict["nonce"] = w3.eth.get_transaction_count(address)
         transaction_receipt = perform_transaction(private_key, transaction_dict, w3,
@@ -177,7 +178,8 @@ def form_fractal_ring(number_of_users, threshold_of_starting_lor, investors, tra
     # NB: We considered 1 coin = 1 Ara
     investor_user = w3.eth.contract(address=investors[investor_index][1].contractAddress,
                                     abi=transaction_dict["abi"])
-    print(perform_transaction(private_key, transaction_dict, w3, investor_user.functions.generate_a_fractal_ring))
+    receipt = perform_transaction(private_key, transaction_dict, w3, investor_user.functions.generate_a_fractal_ring)
+    return web3.Web3.eth.get_transaction(receipt.transactionHash.hex())['value']
 
 
 def form_co_operation_ring(investors, address, transaction_dict, private_key, w3):
@@ -206,18 +208,20 @@ if __name__ == '__main__':
     threshold_of_starting_lor = 1000000
     ver_team_member_abi, ver_team_member_bytecode = get_abi_and_bytecode_from("verification_team_member.sol",
                                                                               "verification_team_member")
+    alpha = 0.49  # alpha percent of traders are vicious
     while True:
         print("Please choose a number among one of the following:")
         print("1. add user(s). ")
         print("2. form a co-operation ring by picking users u.a.r (you should have at least one million users)")
         print("3. form a fractal ring by picking users u.a.r (you should have at least one million users)")
-        print("4. exit")
+        print("4. run the automatic scenarios and exit")
+        print("5. exit")
         input_num = int(input("-->"))
-        if input_num == 4:  # exit
+        if input_num == 5:  # exit
             break
         elif input_num == 1:  # add user(s)
             number_of_users += adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors,
-                                            workers, ver_team_member_abi, ver_team_member_bytecode, trader_abi)
+                                            workers, ver_team_member_abi, ver_team_member_bytecode, trader_abi, alpha)
         elif input_num == 2:
             if number_of_users < threshold_of_starting_lor:
                 print("Not enough users! There are " + str(number_of_users) +
@@ -233,6 +237,28 @@ if __name__ == '__main__':
         elif input_num == 3:  # form a fractal ring
             form_fractal_ring(number_of_users, threshold_of_starting_lor, investors, transaction_dict, address,
                               private_key, w3)
+        elif input_num == 4:
+            for alpha_i in range(4):
+                for i in range(4):
+                    for num_traders in range(1100000 - i * 100000):
+                        adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors,
+                                     workers, ver_team_member_abi, ver_team_member_bytecode, trader_abi,
+                                     alpha - 0.01 * alpha_i)
+                    for ctr in range(len(investors) * 2):
+                        form_co_operation_ring(investors, address, transaction_dict, private_key, w3)
+                    successfully_submitted = 0
+                    for f_ctr in range(int(len(investors) * 2 / 2000)):
+                        if form_fractal_ring(number_of_users, threshold_of_starting_lor, investors, transaction_dict,
+                                             address, private_key, w3) != 0:
+                            successfully_submitted += 1
+                    print("current alpha is " + str(alpha - 0.01 * alpha_i) + " || " + str(successfully_submitted) +
+                          " fractal rings were submitted successfully || number of users is: "
+                          + str(1100000 - i * 100000))
+                    # resetting the experiment
+                    workers = []
+                    investors = []
+                    transaction_dict, initiator_contract, w3, private_key, address = deploy("initiator.sol",
+                                                                                            "broadcast_sim.sol")
 
     # with open(r'initiator_contract.txt', 'w') as fp:
     #     fp.write(str(contact))
