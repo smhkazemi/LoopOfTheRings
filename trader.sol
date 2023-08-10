@@ -110,20 +110,19 @@ contract Trader {
     mapping (uint256 => address[]) private ver_team_addresses_trader_was_a_member_of;
     mapping (uint256 => uint256[]) private co_rings_of_frac_rings_received;
     mapping (uint256 => bool) private votes_to_f_ids;
-
-    constructor(uint256 id_, int ara, address b_addr, address v_address) {
-      id = id_;  
-      ara_amount = ara;
-      broadcast_addr = b_addr;
-      rounds_per_checkpoint = 10; // It can be changed arbitrary
-      rounds_passed = 0;
-      checkpoints_passed = 0;
-        verification_team_member_role_address = v_address;
-    }
-
     uint256 private rounds_passed;
     uint256 private checkpoints_passed;
     uint256 private rounds_per_checkpoint;
+
+    constructor(uint256 id_, int ara, address b_addr, address v_address) {
+        id = id_;
+        ara_amount = ara;
+        broadcast_addr = b_addr;
+        rounds_per_checkpoint = 10; // It can be changed arbitrary
+        rounds_passed = 0;
+        checkpoints_passed = 0;
+        verification_team_member_role_address = v_address;
+    }
 
     function next_round() external{
         rounds_passed++;
@@ -350,22 +349,22 @@ contract Trader {
         }
         len = broadcast(broadcast_addr).get_num_of_users();
         uint256 vt = rand_index(rand_num_of_co_rings) + 1000;
-        uint256[] memory verification_team_memebers_ids = new uint256[](vt);
+        uint256[] memory verification_team_members_ids = new uint256[](vt);
         for(uint256 i = 0; i < vt; i++){
-            verification_team_memebers_ids[i] = broadcast(broadcast_addr).get_user_id_by_index(rand_index(len));
+            verification_team_members_ids[i] = broadcast(broadcast_addr).get_user_id_by_index(rand_index(len));
         }
-        address[] memory verification_team_memebers_addresses = broadcast(broadcast_addr).get_addresses_of(verification_team_memebers_ids);
+        address[] memory verification_team_members_addresses = broadcast(broadcast_addr).get_addresses_of(verification_team_members_ids);
         uint256 votes = 0;
         uint256 f_id = rand_id();
         for(uint256 i = 0; i < vt; i++){
-           votes += verification_team_member(verification_team_memebers_addresses[i]).get_vote_from_address(result, verification_team_memebers_addresses, f_id);
+           votes += verification_team_member(verification_team_members_addresses[i]).get_vote_from_address(result, verification_team_members_addresses, f_id);
         }
         // u.a.r pick a member of VT to change the status of the coins of the fractal ring, if the mejority allows the submission
-        verification_team_member(verification_team_memebers_addresses[rand_index(vt)]).change_status_of_coins(
-            sha256(abi.encodePacked(block.timestamp,msg.sender,verification_team_memebers_addresses)), f_id, votes, vt);
+        verification_team_member(verification_team_members_addresses[rand_index(vt)]).change_status_of_coins(
+            sha256(abi.encodePacked(block.timestamp,msg.sender, verification_team_members_addresses)), f_id, votes, vt);
         if(votes < (vt >> 1)){return;}
         for(uint256 i = 0; i < vt; i++){
-            verification_team_member(verification_team_memebers_addresses[i]).submit_fractal_ring(result, vt, votes, f_id);
+            verification_team_member(verification_team_members_addresses[i]).submit_fractal_ring(result, vt, votes, f_id);
         }
     }
 
