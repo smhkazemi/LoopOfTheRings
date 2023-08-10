@@ -11,11 +11,13 @@ interface broadcast_interface{
 contract initiator{
     uint private randNonce = 0;
     uint256 private num_of_traders_signed_up;
+    uint256 private threshold_of_switching_to_lor;
     address private broadcast_addr;
 
-    constructor(address b_address) {
+    constructor(address b_address, uint256 t) {
         num_of_traders_signed_up = 0;
         broadcast_addr = b_address;
+        threshold_of_switching_to_lor = t;
     }
 
     function rand_id() private returns(uint256)
@@ -27,13 +29,13 @@ contract initiator{
 
     // The admin desires to signup a new trader
     function sign_up(int ara, address v_address) external returns(address){
-        if(num_of_traders_signed_up >= 1000000){
+        if(num_of_traders_signed_up >= threshold_of_switching_to_lor){
             return address(0x0);
         }
         uint256 trader_id = rand_id();
         Trader trader = new Trader(trader_id, ara, broadcast_addr, v_address);
         num_of_traders_signed_up++;
-        if(num_of_traders_signed_up >= 1000000){
+        if(num_of_traders_signed_up >= threshold_of_switching_to_lor){
             broadcast_interface(broadcast_addr).switch_to_lor();
         }
         broadcast_interface(broadcast_addr).add_new_user_by_address(address(trader), trader_id, v_address);
