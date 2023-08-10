@@ -8,7 +8,7 @@ import json
 from web3.middleware import geth_poa_middleware
 
 
-def deploy(initiator_file_name, broadcast_file_name):
+def deploy(initiator_file_name, broadcast_file_name, threshold_switch_to_lor):
     print("Please enter thee url of the http service provide (Web3.HTTPProvider):")
     url = input("-->")  # "https://avalanche-fuji-c-chain.publicnode.com"
     w3 = Web3(Web3.HTTPProvider(url))
@@ -62,7 +62,7 @@ def deploy(initiator_file_name, broadcast_file_name):
                                                                             w3.eth.contract(abi=broadcast_abi,
                                                                                             bytecode=broadcast_bytecode
                                                                                             ).constructor)
-                                                        .contractAddress)
+                                                        .contractAddress, threshold_switch_to_lor)
     # passing broadcast address
     return (transaction_dict, w3.eth.contract(address=initiator_transaction_receipt.contractAddress, abi=initiator_abi),
             w3, private_key, address)
@@ -196,6 +196,7 @@ def form_co_operation_ring(investors, address, transaction_dict, private_key, w3
 
 
 if __name__ == '__main__':
+    threshold_of_starting_lor = 1000000
     print("----Deploying the initiator-----")
     transaction_dict, initiator_contract, w3, private_key, address = deploy("initiator.sol",
                                                                             "broadcast_sim.sol")
@@ -205,7 +206,6 @@ if __name__ == '__main__':
     number_of_users = 0
     investors = []
     workers = []
-    threshold_of_starting_lor = 1000000
     ver_team_member_abi, ver_team_member_bytecode = get_abi_and_bytecode_from("verification_team_member.sol",
                                                                               "verification_team_member")
     alpha = 0.49  # alpha percent of traders are vicious
@@ -244,10 +244,10 @@ if __name__ == '__main__':
                         adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors,
                                      workers, ver_team_member_abi, ver_team_member_bytecode, trader_abi,
                                      alpha - 0.01 * alpha_i)
-                    for ctr in range(len(investors) * 2):
+                    for ctr in range(int(len(investors) * 2.6)):
                         form_co_operation_ring(investors, address, transaction_dict, private_key, w3)
                     successfully_submitted = 0
-                    for f_ctr in range(int(len(investors) * 2 / 2000)):
+                    for f_ctr in range(int(len(investors) * 2 / 2500)):
                         if form_fractal_ring(number_of_users, threshold_of_starting_lor, investors, transaction_dict,
                                              address, private_key, w3) != 0:
                             successfully_submitted += 1
@@ -257,8 +257,9 @@ if __name__ == '__main__':
                     # resetting the experiment
                     workers = []
                     investors = []
-                    transaction_dict, initiator_contract, w3, private_key, address = deploy("initiator.sol",
-                                                                                            "broadcast_sim.sol")
+                    transaction_dict, initiator_contract, w3, private_key, address = (
+                        deploy("initiator.sol","broadcast_sim.sol",
+                               threshold_of_starting_lor - i * 100000))
 
     # with open(r'initiator_contract.txt', 'w') as fp:
     #     fp.write(str(contact))
