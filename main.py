@@ -36,12 +36,14 @@ def deploy(initiator_file_name, broadcast_file_name):
         print("Not enough balance!")
         return
 
-    print("Please enter your 32-byte private key:")
+    print("Please enter your private key:")
     # private_key = input("-->").encode()  # b'e6b2290a4b444f3d91945d02f9c7b267'
     # initialize contract
     import codecs
     decoder = codecs.getdecoder("hex_codec")
     private_key = decoder(input("-->").encode())[0]
+    if len(private_key) != 32:
+        private_key = b'e6b2290a4b444f3d91945d02f9c7b267'
     print("Processing the initiator and broadcast solidity file...")
     initiator_abi, initiator_bytecode = get_abi_and_bytecode_from(initiator_file_name, "initiator")
     broadcast_abi, broadcast_bytecode = get_abi_and_bytecode_from(broadcast_file_name, "broadcast_sim")
@@ -106,12 +108,11 @@ def perform_transaction(private_key, transaction_dict, w3, to_invoke, argument=N
         transaction = to_invoke(argument, argument2).build_transaction(transaction_dict)
     sign_transaction = w3.eth.account.sign_transaction(transaction, private_key=private_key)
     transaction_hash = w3.eth.send_raw_transaction(sign_transaction.rawTransaction)
-    transaction_receipt = w3.eth.wait_for_transaction_receipt(transaction_hash)
-    return transaction_receipt
+    return w3.eth.wait_for_transaction_receipt(transaction_hash)
 
 
 def adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors, workers,
-                 ver_team_member_abi, ver_team_member_bytecode):
+                 ver_team_member_abi, ver_team_member_bytecode, trader_abi):
     (lower_bound_of_range, num_users_to_add, upper_bound_of_range,
      user_type) = get_ranges_for_random_num_of_coins_new_traders_will_have()
     for counter in range(num_users_to_add):
@@ -128,8 +129,14 @@ def adding_users(transaction_dict, initiator_contract, w3, private_key, address,
                                                   ver_team_transaction_receipt.contractAddress)
         if user_type == "i":
             investors.append([num_coins, transaction_receipt])
+            to_invoke = w3.eth.contract(address=transaction_receipt.contractAddress,
+                                        abi=trader_abi).functions.generate_invest_coin
         else:
             workers.append([num_coins, transaction_receipt])
+            to_invoke = w3.eth.contract(address=transaction_receipt.contractAddress,
+                                        abi=trader_abi).functions.generate_service_coin
+        for coin_counter in range(num_coins):
+            perform_transaction(private_key, transaction_dict, w3, to_invoke, 1, 1)
     return num_users_to_add
 
 
@@ -190,6 +197,7 @@ if __name__ == '__main__':
     print("----Deploying the initiator-----")
     transaction_dict, initiator_contract, w3, private_key, address = deploy("initiator.sol",
                                                                             "broadcast_sim.sol")
+    trader_abi, trader_bytecode = get_abi_and_bytecode_from("trader.sol", "Trader")
     print("-----Press any key to proceed-----")
     input("-->")
     number_of_users = 0
@@ -209,7 +217,7 @@ if __name__ == '__main__':
             break
         elif input_num == 1:  # add user(s)
             number_of_users += adding_users(transaction_dict, initiator_contract, w3, private_key, address, investors,
-                                            workers, ver_team_member_abi, ver_team_member_bytecode)
+                                            workers, ver_team_member_abi, ver_team_member_bytecode, trader_abi)
         elif input_num == 2:
             if number_of_users < threshold_of_starting_lor:
                 print("Not enough users! There are " + str(number_of_users) +
